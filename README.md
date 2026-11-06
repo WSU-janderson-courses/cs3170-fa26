@@ -21,9 +21,9 @@ Use the assignment repositories provided through Classroom 50 for your submissio
 |---|---|
 | [`examples/`](examples/) | Android Studio projects developed or demonstrated during class. |
 | [`img/`](img/) | Images and visual resources used in course materials. |
-| [`inClass/`](inClass/) | Completed versions of in-class exercises and activities, typically posted after grading. |
+| [`activitySolutions/`](activitySolutions/) | Completed versions of in-class exercises and activities, typically posted after grading. |
 | [`kotlin/`](kotlin/) | Kotlin language examples and links to Kotlin Playground exercises. |
-| [`projects/`](projects/)  | Instructor solutions to selected course projects, shared when available. |
+| [`projectSolutions/`](projectSolutions/)  | Instructor solutions to selected course projects, shared when available. |
 
 ### Kotlin Examples
 
@@ -44,9 +44,9 @@ You're encouraged to experiment with the examples, modify the code, and use them
 
 ### Completed Activities and Project Solutions
 
-The [`inClass/`](inClass/) directory contains completed versions of in-class exercises and activities, generally made available after grading.
+The [`activitySolutions/`](activitySolutions/) directory contains completed versions of in-class exercises and activities, generally made available after grading.
 
-Solutions to larger course projects will be organized separately under [`projects/`](projects/) when that directory is added.
+Solutions to larger course projects will be organized separately under [`projectSolutions/`](projectSolutions/) when that directory is added.
 
 These solutions are intended to help you review concepts, compare different approaches, and understand how the applications are implemented. They are not necessarily the only correct implementations.
 
