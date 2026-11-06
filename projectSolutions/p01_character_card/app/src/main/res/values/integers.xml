@@ -1,0 +1,6 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <integer name="castingCost">5</integer>
+    <integer name="powerStat">3</integer>
+    <integer name="toughnessStat">2</integer>
+</resources>

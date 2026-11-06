@@ -1,0 +1,15 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <color name="purple_200">#FFBB86FC</color>
+    <color name="purple_500">#FF6200EE</color>
+    <color name="purple_700">#FF3700B3</color>
+    <color name="teal_200">#FF03DAC5</color>
+    <color name="teal_700">#FF018786</color>
+    <color name="black">#FF000000</color>
+    <color name="white">#FFFFFFFF</color>
+    <color name="dummy">#808080</color>
+    <color name="mage">#50678B</color>
+    <color name="paladin">#7959AE</color>
+    <color name="rogue">#B18C30</color>
+    <color name="warrior">#AF5050</color>
+</resources>

@@ -1,0 +1,10 @@
+<resources>
+    <string name="app_name">Character Creator I</string>
+    <string name="label_name">Name</string>
+    <string name="label_class">Class</string>
+    <string name="label_description">Description</string>
+    <string name="rogue">Rogue</string>
+    <string name="mage">Mage</string>
+    <string name="paladin">Paladin</string>
+    <string name="warrior">Warrior</string>
+</resources>

@@ -1,0 +1,7 @@
+<resources>
+    <string name="app_name">CharacterCard</string>
+    <string name="drinky_name">Drinkyelf</string>
+    <string name="drinky_class">Night Elf Rogue</string>
+    <string name="drinky_description">When an enemy is damaged by Drinkyelf, they become poisoned, up to five stacks. Each round a creature is poisoned, each turn it takes damage equal to the number of stacks of poison. </string>
+    <string name="dummy_class_name">Dummy Class</string>
+</resources>
