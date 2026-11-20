@@ -1,76 +1,202 @@
-# CS 3170 — Connect to the Internet: Mars Photos
+# CS 3170 — Mars Photos: An Incremental Networking Demo
 
-**In-class live demo** · Approximately 55 minutes · Jetpack Compose / Kotlin
+**Two class periods (about 55 minutes each)**  
+Kotlin · Jetpack Compose · Retrofit · JSON serialization · coroutines · Coil 2
 
-> This walkthrough is adapted from `11_ConnectToInternet.pptx` and the completed
-> `MarsPhotosWorking` Android Studio project. It deliberately omits repository /
-> dependency-injection / testing implementation from the original slide sequence.
-> Students begin with a compilable Android Studio project and complete the marked steps.
+Based on the completed `MarsPhotosWorking.zip` project and `11_ConnectToInternet.pptx`. We follow the slides' original progression—**raw JSON → deserialized objects → one record → one image → photo grid**—without adding repository/container/factory/test infrastructure during the demo (those appear on original slides 18–27).
 
-## Learning goals
+**Files:** `MarsPhotos_Day1_Starter_Incremental.zip` is the runnable starting point; `MarsPhotos_Raw_JSON_Checkpoint.zip` is the optional mid-Day-1 checkpoint; `MarsPhotos_Day2_Checkpoint_Incremental.zip` is the end-of-Day-1 result; `MarsPhotos_Instructor_Solution_Incremental.zip` is the completed app. Each ZIP contains this walkthrough as `LIVE_DEMO.md`.
 
-By the end, students should be able to:
+**Before class:** Sync and run the starter. It deliberately shows *Loaded 0 Mars photo records*. `AndroidManifest.xml` already declares `INTERNET`, and Gradle dependencies are already added, **including converter-scalars**. Appendix A lists the exact aliases if you want to teach setup later.
 
-- Explain a **client → HTTP GET → server → JSON response** workflow.
-- Map JSON field names to Kotlin properties using Kotlin serialization.
-- Make a suspending Retrofit call from a ViewModel using `viewModelScope.launch`.
-- Reflect Loading, Success, and Error in a Compose UI.
-- Load a remote image with Coil's `AsyncImage`.
-- **If time allows:** display multiple images using `LazyVerticalGrid`.
+## What we intentionally leave preconfigured
 
-## Preparation (before class, already in starter)
+- Project/theme/`Scaffold`, `MarsPhotosApp()`, and the Compose screen scaffolding
+- Gradle plugins and dependencies (Retrofit, Scalars converter, Kotlin serialization, Coil)
+- Internet permission and drawable resources
+- `MarsUiState.Loading/Success/Error` and the initial empty-list placeholder
 
-The starter project already includes the INTERNET permission in `AndroidManifest.xml`,
-Gradle dependencies for Retrofit, `converter-kotlinx-serialization`, Kotlin serialization,
-and Coil 2, and a Retrofit builder in `network/MarsApiService.kt`.
-It also includes the ViewModel, Compose `Scaffold`, and loading/error/retry screens.
-The repository / app container / custom `Application` / ViewModel factory have been removed
-so the demo concentrates on network I/O. Retrofit 3's official serializer replaces the
-older archived Jake Wharton converter in the original project.
+## Files to edit live
 
-**Instructor preflight:** open and run the starter on the same computer/emulator used in class.
-The expected initial message is **Loaded 0 Mars photo records**. Open the API endpoint in
-an ordinary browser to check availability:
+| File | Live-coding change |
+|---|---|
+| `network/MarsApiService.kt` | Define raw String GET; later add typed GET and JSON converter |
+| `ui/screens/MarsViewModel.kt` | Coroutines; first raw JSON state, then typed `Success` |
+| `ui/screens/HomeScreen.kt` | Render JSON preview, then first record's two properties |
+| `network/MarsPhoto.kt` | Add serialization annotations |
+| Day 2: `ui/screens/HomeScreen.kt` | Coil image, adaptive grid, placeholders, retry |
 
-https://android-kotlin-fun-mars-server.appspot.com/photos
+---
 
-**Student files to edit:**
+# Day 1 — From HTTP JSON to Kotlin objects (55 minutes)
 
-- `app/src/main/java/com/example/marsphotos/network/MarsPhoto.kt`
-- `app/src/main/java/com/example/marsphotos/network/MarsApiService.kt`
-- `app/src/main/java/com/example/marsphotos/ui/screens/MarsViewModel.kt`
-- `app/src/main/java/com/example/marsphotos/ui/screens/HomeScreen.kt`
+## 1. See the GET response in a browser (5 minutes)
 
-## 1. What's being downloaded? (5 minutes)
+Open <https://android-kotlin-fun-mars-server.appspot.com/photos>. Optionally open Chrome DevTools → **Network**, refresh, and find `Request Method: GET`, `Status: 200`, and the **Response** tab.
 
-Start with the API in a browser; don't start by typing Gradle configuration.
-
-```text
-GET https://android-kotlin-fun-mars-server.appspot.com/photos
-```
-
-Simplified response (the actual endpoint returns many photos):
+The response is a **JSON array** (square brackets) of objects (curly braces):
 
 ```json
 [
-  { "id": "424905", "img_src": "https://mars.jpl.nasa.gov/...jpg" },
-  { "id": "424906", "img_src": "https://mars.jpl.nasa.gov/...jpg" }
+  {"id": "424905", "img_src": "https://mars.jpl.nasa.gov/..."},
+  {"id": "424906", "img_src": "https://mars.jpl.nasa.gov/..."}
 ]
 ```
 
-Ask: **Is this JSON an object or an array? What is the type of each element?**
-The response is an array; each element has an `id` and an image URL.
-Retrofit downloads/parses the JSON *metadata*. Coil later downloads the actual JPEG data.
-Those are **two distinct network requests**, not one.
+These image URLs are illustrative. Explain that the API gives us **metadata containing image URLs**, not the image bytes themselves.
 
-**Slide connections:** original slides 2–5 and 14.
+**Question:** If the browser can show this JSON, how can an Android application request the same response?
 
-## 2. Deserialize JSON into a Kotlin class (5 minutes)
+*Original slides 2–5, 14.*
 
-Open `network/MarsPhoto.kt`. It begins as an ordinary `data class`.
-Add the imports and annotations:
+## 2. Find the libraries and permission (4 minutes)
+
+Open `app/build.gradle.kts`. The starter already contains:
 
 ```kotlin
+implementation(libs.retrofit)
+implementation(libs.retrofit.scalars)
+implementation(libs.kotlinx.serialization.retrofit)
+implementation(libs.kotlinx.serialization.json)
+implementation(libs.coil.compose)
+```
+
+- `converter-scalars` allows Retrofit to return the response as a **String**.
+- `converter-kotlinx-serialization` maps JSON into Kotlin objects once we add `@Serializable`.
+- Coil turns image URLs into images (Day 2).
+
+In `app/src/main/AndroidManifest.xml`, point out this line *inside `<manifest>`, outside `<application>`*:
+
+```xml
+<uses-permission android:name="android.permission.INTERNET" />
+```
+
+No runtime permission prompt is needed for `INTERNET`.
+
+*Original slides 6, 10, 15.*
+
+## 3. First request: ask Retrofit for a String (10 minutes)
+
+Open the initially empty `network/MarsApiService.kt` and enter **all** of this:
+
+```kotlin
+package com.example.marsphotos.network
+
+import retrofit2.Retrofit
+import retrofit2.converter.scalars.ScalarsConverterFactory
+import retrofit2.http.GET
+
+private const val BASE_URL = "https://android-kotlin-fun-mars-server.appspot.com/"
+
+interface MarsApiService {
+    @GET("photos")
+    suspend fun getRawPhotos(): String
+}
+
+private val retrofit = Retrofit.Builder()
+    .baseUrl(BASE_URL)
+    .addConverterFactory(ScalarsConverterFactory.create())
+    .build()
+
+object MarsApi {
+    val retrofitService: MarsApiService by lazy {
+        retrofit.create(MarsApiService::class.java)
+    }
+}
+```
+
+Explain `@GET("photos")`, `suspend`, the trailing slash in `BASE_URL`, and why `by lazy` means the Retrofit service is created once on first access.
+
+**At this point the app still shows 0 records; the ViewModel is not requesting data yet.**
+
+*Original slides 7–9.*
+
+## 4. Fetch raw JSON and show it on screen (12 minutes)
+
+### In `MarsViewModel.kt`, add a RawJson state
+
+Add this to the **existing** `sealed interface MarsUiState`:
+
+```kotlin
+data class RawJson(val json: String) : MarsUiState
+```
+
+Add imports:
+
+```kotlin
+import androidx.lifecycle.viewModelScope
+import com.example.marsphotos.network.MarsApi
+import kotlinx.coroutines.CancellationException
+import kotlinx.coroutines.launch
+```
+
+Change the initial value of `marsUiState` to `MarsUiState.Loading` (keep `by mutableStateOf` and `private set`). Replace the existing `getMarsPhotos()` function:
+
+```kotlin
+fun getMarsPhotos() {
+    marsUiState = MarsUiState.Loading
+    viewModelScope.launch {
+        try {
+            val json = MarsApi.retrofitService.getRawPhotos()
+            marsUiState = MarsUiState.RawJson(json)
+        } catch (e: CancellationException) {
+            throw e
+        } catch (e: Exception) {
+            marsUiState = MarsUiState.Error
+        }
+    }
+}
+```
+
+**Explain:** The network call suspends without freezing the UI; setting Compose state triggers recomposition. `CancellationException` must not be swallowed by the generic exception handler.
+
+### In `HomeScreen.kt`, show a preview of the JSON
+
+Add imports:
+
+```kotlin
+import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.verticalScroll
+import androidx.compose.ui.text.font.FontFamily
+```
+
+Inside the existing `when (marsUiState)` block, add this branch. **Do not replace the existing Loading, Error, or Success branches.**
+
+```kotlin
+is MarsUiState.RawJson -> {
+    val preview = marsUiState.json.take(1600)
+    val suffix = if (marsUiState.json.length > 1600) {
+        "\n...\n(${marsUiState.json.length} characters total)"
+    } else {
+        ""
+    }
+    Column(
+        modifier = Modifier
+            .fillMaxSize()
+            .verticalScroll(rememberScrollState())
+            .padding(16.dp)
+    ) {
+        Text("Raw JSON response")
+        Text(preview + suffix, fontFamily = FontFamily.Monospace)
+    }
+}
+```
+
+**Checkpoint — RUN:** The app should now show raw JSON, beginning with `[` and containing the keys `id` and `img_src`. We display the first 1,600 characters to avoid rendering a huge response in the Compose UI. The full response is still in `RawJson.json`.
+
+If you're short on time, use `MarsPhotos_Raw_JSON_Checkpoint.zip` to reach this exact point.
+
+*Original slides 9–13 (we defer detailed UI error behavior until Day 2).*
+
+## 5. Map JSON objects to `MarsPhoto` (12 minutes)
+
+### Make the Kotlin data class serializable
+
+In `network/MarsPhoto.kt`, add the annotations and imports:
+
+```kotlin
+package com.example.marsphotos.network
+
 import kotlinx.serialization.SerialName
 import kotlinx.serialization.Serializable
 
@@ -81,81 +207,124 @@ data class MarsPhoto(
 )
 ```
 
-**Explain:** `@Serializable` allows the JSON converter to instantiate `MarsPhoto`.
-`@SerialName` maps the server field `img_src` onto the Kotlin property `imgSrc`.
-The complete endpoint returns `List<MarsPhoto>`.
+Point to one JSON object in the browser: `id` maps directly, but `img_src` must be mapped to `imgSrc` using `@SerialName`.
 
-**Slide connection:** original slide 16 (skip the old dependency-install slide 15).
+### Give Retrofit another method for the *same* GET
 
-## 3. Describe the HTTP request (5 minutes)
-
-Open `network/MarsApiService.kt`. The Retrofit builder, base URL, and converter
-are already configured. Point out `BASE_URL` and the `MarsApi` singleton,
-then add `@GET("photos")` to the interface:
+In the existing `MarsApiService` interface, **keep** `getRawPhotos()` and add:
 
 ```kotlin
-interface MarsApiService {
-    @GET("photos")
-    suspend fun getPhotos(): List<MarsPhoto>
-}
+@GET("photos")
+suspend fun getPhotos(): List<MarsPhoto>
 ```
 
-**Explain:** `@GET("photos")` adds `photos` to the base URL.
-`suspend` means callers invoke this from a coroutine or another suspend function.
-The `MarsApi.retrofitService` object gives us the service implementation created by Retrofit.
-
-**Slide connections:** original slides 6–9 and 17; skip live typing the Retrofit builder.
-
-## 4. Request photos from the ViewModel (15 minutes)
-
-Open `ui/screens/MarsViewModel.kt`. The starter already provides the sealed UI state:
+Add the following imports to `MarsApiService.kt`:
 
 ```kotlin
-sealed interface MarsUiState {
-    data object Loading : MarsUiState
-    data class Success(val photos: List<MarsPhoto>) : MarsUiState
-    data object Error : MarsUiState
-}
+import kotlinx.serialization.json.Json
+import okhttp3.MediaType.Companion.toMediaType
+import retrofit2.converter.kotlinx.serialization.asConverterFactory
 ```
 
-The `init` block already calls `getMarsPhotos()`. Replace only the body of
-`getMarsPhotos()` with:
+Update the existing Retrofit builder by **adding** the JSON converter **after** the Scalars converter:
 
 ```kotlin
-fun getMarsPhotos() {
-    marsUiState = MarsUiState.Loading
-    viewModelScope.launch {
-        try {
-            val photos = MarsApi.retrofitService.getPhotos()
-            marsUiState = MarsUiState.Success(photos)
-        } catch (e: CancellationException) {
-            throw e
-        } catch (e: Exception) {
-            marsUiState = MarsUiState.Error
-        }
+private val retrofit = Retrofit.Builder()
+    .baseUrl(BASE_URL)
+    .addConverterFactory(ScalarsConverterFactory.create())
+    .addConverterFactory(
+        Json { ignoreUnknownKeys = true }
+            .asConverterFactory("application/json".toMediaType())
+    )
+    .build()
+```
+
+Why keep both? The Scalars converter handles methods returning `String`; the Kotlin serialization converter handles `List<MarsPhoto>`. Both methods call the same endpoint but Retrofit interprets the return type differently.
+
+**Checkpoint:** App still shows raw JSON because we haven't changed the ViewModel call yet.
+
+### Switch from a String to Kotlin objects
+
+In `MarsViewModel.getMarsPhotos()` replace just these two lines:
+
+```kotlin
+val json = MarsApi.retrofitService.getRawPhotos()
+marsUiState = MarsUiState.RawJson(json)
+```
+
+with:
+
+```kotlin
+val photos = MarsApi.retrofitService.getPhotos()
+marsUiState = MarsUiState.Success(photos)
+```
+
+**Checkpoint — RUN:** The existing starter screen shows the count and the first photo record (currently formatted as one long line). We have gone from a `String` to `List<MarsPhoto>` without changing the HTTP URL.
+
+*Original slides 14–17.*
+
+## 6. Display the first object's fields (8 minutes)
+
+In `HomeScreen.kt`, find `MarsPhotoCard` and replace its current `Card` block with:
+
+```kotlin
+Card(modifier = modifier) {
+    Column(
+        modifier = Modifier.fillMaxSize().padding(12.dp),
+        verticalArrangement = Arrangement.spacedBy(8.dp)
+    ) {
+        Text("ID: ${photo.id}")
+        Text("Image URL: ${photo.imgSrc}")
     }
 }
 ```
 
-Add the import `kotlinx.coroutines.CancellationException` (the `launch` import is already present).
-Change the initial ViewModel state to `MarsUiState.Loading` if desired; either way,
-`getMarsPhotos()` sets it before launching the network call.
+`PhotosGridScreen` already uses `photos.first()` when the list isn't empty. It's safe because the starter checks `photos.isEmpty()` first.
 
-**Run checkpoint:** the app should now say **Loaded [number] Mars photo records**
-(the exact count depends on the server). Beneath it, the starter displays the URL of the
-first image as text. This proves the network and deserialization steps work **before** Coil.
+**Checkpoint — RUN:** See **Loaded N Mars photo records**, followed by the first record's `id` and `imgSrc`. Compare the field names to the browser JSON. We haven't asked Coil to load an image yet.
 
-**Discuss:** `viewModelScope` keeps work tied to the ViewModel; a network request must
-not block the UI. If the request fails, show Error instead of crashing. Cancellation
-should be rethrown rather than treated as an ordinary failure.
+**Optional 2-minute deep dive:** To show deserialization as an explicit operation before letting Retrofit do it for you, temporarily call `getRawPhotos()` again and write:
 
-**Slide connections:** original slides 9–13, 17. The starter already contains the
-Loading/Error composables, so students can focus on the request.
+```kotlin
+val rawJson = MarsApi.retrofitService.getRawPhotos()
+val photos = Json { ignoreUnknownKeys = true }
+    .decodeFromString<List<MarsPhoto>>(rawJson)
+marsUiState = MarsUiState.Success(photos)
+```
 
-## 5. Turn an image URL into an actual image (10 minutes)
+You'll need `import kotlinx.serialization.json.Json` in the ViewModel. Restore the two-line `getPhotos()` version afterward. This directly illustrates that converting JSON text to objects is a separate operation; the Retrofit converter automates it.
 
-Open `ui/screens/HomeScreen.kt`. Find the `MarsPhotoCard` composable and replace
-its placeholder `Card` body with Coil's `AsyncImage`:
+**Stop Day 1 here.** If class time runs short, the required finish line is the raw JSON checkpoint; the typed-result step can open Day 2. `MarsPhotos_Day2_Checkpoint_Incremental.zip` provides the typed-result state for students who need it.
+
+*Original slides 16–17 and the pre-image portion of 28.*
+
+---
+
+# Day 2 — Display remote images with Coil (55 minutes)
+
+## 1. Recap and run (5 min)
+
+Use the end-of-Day-1 app or open `MarsPhotos_Day2_Checkpoint_Incremental.zip`.
+
+- It should retrieve records and display the first photo **ID and image URL as text**.
+- The JSON request succeeded, but the image itself has not been downloaded or rendered yet.
+
+**Question:** Which library will turn the URL string into an image? (Coil.)
+
+## 2. Display the first remote image (15 min)
+
+Open `ui/screens/HomeScreen.kt`. Find `MarsPhotoCard`.
+
+Add imports:
+
+```kotlin
+import androidx.compose.ui.layout.ContentScale
+import androidx.compose.ui.platform.LocalContext
+import coil.compose.AsyncImage
+import coil.request.ImageRequest
+```
+
+Replace the `Card` content (keep its surrounding function signature):
 
 ```kotlin
 Card(modifier = modifier) {
@@ -166,37 +335,29 @@ Card(modifier = modifier) {
             .build(),
         contentDescription = "Mars photo ${photo.id}",
         contentScale = ContentScale.Crop,
-        placeholder = painterResource(R.drawable.loading_img),
-        error = painterResource(R.drawable.ic_broken_image),
         modifier = Modifier.fillMaxSize()
     )
 }
 ```
 
-Android Studio can help add these imports:
+**Checkpoint — RUN:** A single Martian landscape photo should appear. Some URLs supplied by the external API may fail independently of the list request. If an individual photo doesn't load, inspect Logcat or try another photo in the list before changing the Retrofit code.
+
+**Explain:** Retrofit fetches *JSON containing URLs*; Coil makes a second HTTP request for a particular image and handles decode/cache/display. `ContentScale.Crop` fills the given bounds while cropping excess image area.
+
+*Original slide: 28.*
+
+## 3. Turn one image into a photo grid (15 min)
+
+Still in `HomeScreen.kt`, add imports:
 
 ```kotlin
-import coil.compose.AsyncImage
-import coil.request.ImageRequest
-import androidx.compose.ui.layout.ContentScale
-import androidx.compose.ui.platform.LocalContext
-import androidx.compose.ui.res.painterResource
-import com.example.marsphotos.R
+import androidx.compose.foundation.layout.aspectRatio
+import androidx.compose.foundation.lazy.grid.GridCells
+import androidx.compose.foundation.lazy.grid.LazyVerticalGrid
+import androidx.compose.foundation.lazy.grid.items
 ```
 
-**Run checkpoint:** the screen should show one remote Mars photo instead of its URL.
-The existing `PhotosGridScreen` deliberately displays only `photos.first()`; we
-change that in the optional next step.
-
-**Explain:** Retrofit loads the *list of URLs*; Coil downloads, decodes,
-loads, and caches the images. `placeholder` appears while an image loads;
-`error` is shown when an individual image fails.
-
-**Slide connections:** original slides 28–29. The starter includes the image resources.
-
-## 6. Optional / stretch: Show a grid (10 minutes)
-
-If time allows, replace `PhotosGridScreen` in `HomeScreen.kt` with:
+Replace `PhotosGridScreen` (the original has a `Column` and shows only `photos.first()`):
 
 ```kotlin
 @Composable
@@ -209,7 +370,7 @@ fun PhotosGridScreen(
         modifier = modifier.fillMaxSize(),
         contentPadding = PaddingValues(8.dp)
     ) {
-        items(photos, key = { it.id }) { photo ->
+        items(items = photos, key = { it.id }) { photo ->
             MarsPhotoCard(
                 photo = photo,
                 modifier = Modifier
@@ -222,78 +383,142 @@ fun PhotosGridScreen(
 }
 ```
 
-Imports:
+**Checkpoint — RUN:** Scroll through the photos. `LazyVerticalGrid` only composes visible items and nearby items. `GridCells.Adaptive(150.dp)` decides how many columns fit. `key = { it.id }` gives stable identities to the items.
+
+**Student mini-experiment:** Change `minSize` from `150.dp` to `100.dp`, then to `200.dp`. What changes? Why does `aspectRatio(1.5f)` matter?
+
+*Original slides: 30–32.*
+
+## 4. Image placeholders and errors (8 min)
+
+Add imports:
 
 ```kotlin
-import androidx.compose.foundation.layout.aspectRatio
-import androidx.compose.foundation.lazy.grid.GridCells
-import androidx.compose.foundation.lazy.grid.LazyVerticalGrid
-import androidx.compose.foundation.lazy.grid.items
+import androidx.compose.ui.res.painterResource
+import com.example.marsphotos.R
 ```
 
-**Run checkpoint:** a scrollable grid of downloaded images.
-Note the `key = { it.id }` and `GridCells.Adaptive(150.dp)` behavior as you resize
-or rotate the emulator. Depending on internet/image-server reliability, a few
-individual image requests might fail even when the JSON request succeeds.
+Inside the `AsyncImage` call, add these arguments:
 
-**Slide connections:** original slides 30–32.
+```kotlin
+placeholder = painterResource(R.drawable.loading_img),
+error = painterResource(R.drawable.ic_broken_image),
+```
 
-## 7. If time remains: Error and Retry (5 minutes)
+The images already exist in the starter's `res/drawable` directory.
 
-Toggle airplane mode / disable the emulator's network, run the request,
-and observe the Error screen. Restore connectivity and press **Retry**.
+**Explain the difference:** the application's whole-list network request has Loading/Error UI; each Coil image request can independently show its own placeholder or broken-image symbol.
 
-The `HomeScreen` error UI and `onRetry` callback are supplied in the starter;
-students don't need to write the retry button during the main demo.
-Discuss that the API request could succeed while one image request fails,
-and these are distinct error paths.
+*Original slide: 29.*
 
-**Slide connection:** original slide 33.
+## 5. Add Retry to the error state (10 min)
 
-## Time budget and stopping points
+The starter's `HomeScreen` already takes a callback `onRetry: () -> Unit`, and `MarsPhotosApp.kt` passes `marsViewModel::getMarsPhotos`. All that remains is a button.
 
-| Segment | Time | Minimum outcome |
-| --- | ---: | --- |
-| Inspect API JSON | 5 min | Recognize JSON array and URL field |
-| `MarsPhoto` annotations | 5 min | Type-safe data model |
-| `@GET` Retrofit declaration | 5 min | Service method described |
-| ViewModel request | 15 min | List downloaded; count appears |
-| Coil `AsyncImage` | 10 min | **One Mars photo shown — core goal** |
-| `LazyVerticalGrid` | 10 min | Stretch goal: gallery |
-| Review / troubleshoot | 5 min | Explain two network stages |
+Add the import:
 
-**If running behind:** stop after Coil. One successfully rendered remote image
-already satisfies the main learning goal. Do not add repository/DI or tests in class.
+```kotlin
+import androidx.compose.material3.Button
+```
 
-## What we deliberately postponed from the original slides
+Within `HomeScreen`, find the `MarsUiState.Error -> Column(...) { ... }` branch. Under the existing message, add:
 
-- **Slides 18–23:** repository, dependency injection, `AppContainer`, custom
-  `Application`, and ViewModel factory. These are useful for larger apps but distract
-  from the network/Coil demonstration; the simplified ViewModel uses `MarsApi` directly.
-- **Slides 24–27 and 34:** fake API service, repository tests, ViewModel test dispatcher.
-  Good follow-up lab, but not a 55-minute demo.
-- **Slide 15:** version numbers/dependency syntax from the original deck are superseded
-  by the preconfigured `libs.versions.toml` and official Retrofit converter.
-- **Slide 8:** singleton discussion is kept short: students use `MarsApi.retrofitService`,
-  rather than building Retrofit in each request.
+```kotlin
+Button(onClick = onRetry) {
+    Text("Retry")
+}
+```
 
-## Troubleshooting notes
+**Test:** With Wi-Fi/network disabled or airplane mode enabled, force-stop and relaunch the app. The full request should show Error. Reenable connectivity and tap **Retry**; the app should return to the gallery if the endpoint is available. (Depending on emulator state and caching, disabling connectivity may not always reproduce the same failure.)
 
-- **`Unable to create converter for List<MarsPhoto>` / missing serializer:** check
-  `@Serializable`, Kotlin serialization plugin, and `@SerialName`.
-- **`HTTP method annotation is required`:** check `@GET("photos")`.
-- **`IllegalArgumentException: baseUrl must end in /`:** `BASE_URL` should end with `/`
-  (already fixed in the starter).
-- **Blank screen / no photos:** check emulator connectivity and Logcat;
-  check `INTERNET` permission. The initial starter intentionally shows zero photos.
-- **Photos count displays but images are broken:** JSON loaded, but Coil's separate
-  image requests may have failed; test an `img_src` URL in a browser.
-- **Imports unresolved:** make sure you're editing the `network` and `ui/screens`
-  packages supplied in the project and that Gradle sync completed.
+**Instructor note:** The `onRetry` callback is a Compose example of passing behavior rather than passing the ViewModel directly into the reusable error screen.
 
-## Resources
+*Original slides: 11–13, 33.*
 
-- Original material: `11_ConnectToInternet.pptx` (34 slides)
-- Original solution: `MarsPhotosWorking.zip`
-- Google Android Basics: https://developer.android.com/courses/android-basics-compose/unit-5
-- API: https://android-kotlin-fun-mars-server.appspot.com/photos
+## 6. Review (2 min)
+
+Ask students: Why might the JSON count load successfully when some photo tiles display broken images? Which screen behavior should be controlled by the ViewModel, and which is local to Coil?
+
+### If you're ahead of schedule
+
+- Display each `photo.id` as a label below its image in a `Column`.
+- Let students replace `GridCells.Adaptive` with `GridCells.Fixed(3)`.
+- Show the Retrofit request path versus the image URL to emphasize two different HTTP requests.
+- Discuss where a repository and dependency injection would fit **if the app became larger** (original slides 18–27).
+
+---
+
+# Appendix A — Dependencies, exactly as configured
+
+**No student action is required for this demo.** The starter already has everything below. These directions are for lecture explanation or future reuse. The versions follow the supplied Android Studio project where practical, and replace its duplicated Retrofit and older third-party serialization converter entries.
+
+### A1. Version catalog: `gradle/libs.versions.toml`
+
+Relevant entries (do not replace the entire catalog with just these):
+
+```toml
+[versions]
+kotlin = "2.2.21"
+retrofit = "3.0.0"
+kotlinxSerializationJson = "1.9.0"
+coilCompose = "2.7.0"
+
+[libraries]
+retrofit = { module = "com.squareup.retrofit2:retrofit", version.ref = "retrofit" }
+retrofit-scalars = { module = "com.squareup.retrofit2:converter-scalars", version.ref = "retrofit" }
+kotlinx-serialization-retrofit = { module = "com.squareup.retrofit2:converter-kotlinx-serialization", version.ref = "retrofit" }
+kotlinx-serialization-json = { module = "org.jetbrains.kotlinx:kotlinx-serialization-json", version.ref = "kotlinxSerializationJson" }
+coil-compose = { module = "io.coil-kt:coil-compose", version.ref = "coilCompose" }
+
+[plugins]
+kotlin-serialization = { id = "org.jetbrains.kotlin.plugin.serialization", version.ref = "kotlin" }
+```
+
+Notice that the catalog's `kotlinx-serialization-retrofit` alias becomes `libs.kotlinx.serialization.retrofit` in Gradle Kotlin DSL. This project intentionally uses **Coil 2.7.0**, matching the imports `coil.compose.AsyncImage` and `coil.request.ImageRequest` in your completed app. **Coil 3** uses different coordinates/imports and requires a separate network module for HTTP images; don't mix instructions from the two major versions.
+
+### A2. App-level `app/build.gradle.kts`
+
+Within `plugins { ... }`:
+
+```kotlin
+alias(libs.plugins.kotlin.serialization)
+```
+
+Within `dependencies { ... }`:
+
+```kotlin
+implementation(libs.retrofit)
+implementation(libs.retrofit.scalars)
+implementation(libs.kotlinx.serialization.retrofit)
+implementation(libs.kotlinx.serialization.json)
+implementation(libs.coil.compose)
+```
+
+Select **Sync Project with Gradle Files** after adding dependencies to an existing project. The original project uses Android Gradle Plugin 9.4.1 with its compatibility settings in `gradle.properties` (`android.builtInKotlin=false`, `android.newDsl=false`) because it still applies `org.jetbrains.kotlin.android`. The supplied starter retains those settings to avoid introducing a build-system migration during this lesson.
+
+### A3. Internet permission: `app/src/main/AndroidManifest.xml`
+
+Direct child of `<manifest>` and **before** `<application>`:
+
+```xml
+<uses-permission android:name="android.permission.INTERNET" />
+```
+
+### A4. Short dependency troubleshooting checklist
+
+- **Unresolved `retrofit2` / `kotlinx.serialization`:** Gradle sync, then check plugin and aliases.
+- **`Serializer for class 'MarsPhoto' is not found`:** Missing `@Serializable`, serialization plugin, or mismatched property annotation.
+- **Retrofit base URL error:** It must end with `/`.
+- **Missing Internet permission / network errors:** Verify `AndroidManifest.xml`, emulator connectivity, and the endpoint in a browser.
+- **JSON loads but images are broken:** The image host may be unavailable; this isn't necessarily a Retrofit error.
+- **Coil unresolved imports:** This starter uses **Coil 2**, so imports begin with `coil.compose` / `coil.request` instead of `coil3.*`.
+- **Android Studio build-plugin errors:** Open this exact starter project; it retains the AGP / Kotlin compatibility settings of the supplied completed project.
+
+## Source trail / slide mapping
+
+- Day 1: original slides 2–17, **including** the scalar String response, then JSON conversion and one-record display.
+- Not implemented in demo: original slides 18–27 (repository, dependency injection, ViewModel factory, local tests); discuss if desired.
+- Day 2: original slides 28–33 (`AsyncImage`, placeholders, grids, Retry).
+- Original slide 34 (updated ViewModel test) is omitted because tests were outside the two-class scope.
+
+Official references: [Android — Get data from the internet](https://developer.android.com/codelabs/basic-android-kotlin-compose-getting-data-internet) · [Android — Load and display images](https://developer.android.com/codelabs/basic-android-kotlin-compose-load-images) · [Retrofit](https://square.github.io/retrofit/) · [Coil](https://coil-kt.github.io/coil/).

@@ -34,16 +34,16 @@ fun HomeScreen(
                 contentAlignment = Alignment.Center
             ) { CircularProgressIndicator() }
 
-            MarsUiState.Error -> Column(
+            is MarsUiState.Error -> Column(
                 modifier = Modifier.fillMaxSize(),
                 verticalArrangement = Arrangement.Center,
                 horizontalAlignment = Alignment.CenterHorizontally
             ) {
-                Text("Could not load Mars photos")
+                Text("Could not load Mars photos: ${marsUiState.message}")
                 Button(onClick = onRetry) { Text("Retry") }
             }
 
-            is MarsUiState.Success -> PhotosGridScreen(marsUiState.photos)
+            is MarsUiState.Success -> Text(marsUiState.photos)// PhotosGridScreen(marsUiState.photos)
         }
     }
 }
