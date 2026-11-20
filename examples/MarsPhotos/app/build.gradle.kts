@@ -52,6 +52,7 @@ dependencies {
 
     // Network, JSON, and remote images (already configured for the demo)
     implementation(libs.retrofit)
+    implementation(libs.retrofit.scalars)
     implementation(libs.kotlinx.serialization.retrofit)
     implementation(libs.kotlinx.serialization.json)
     implementation(libs.coil.compose)
