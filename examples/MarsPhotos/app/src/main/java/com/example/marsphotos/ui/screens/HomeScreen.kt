@@ -43,7 +43,7 @@ fun HomeScreen(
                 Button(onClick = onRetry) { Text("Retry") }
             }
 
-            is MarsUiState.Success -> Text(marsUiState.photos)// PhotosGridScreen(marsUiState.photos)
+            is MarsUiState.Success -> Text("There are ${marsUiState.photos.size} photos")// PhotosGridScreen(marsUiState.photos)
         }
     }
 }

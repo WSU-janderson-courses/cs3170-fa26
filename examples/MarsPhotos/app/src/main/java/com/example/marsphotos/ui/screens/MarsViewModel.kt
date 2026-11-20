@@ -10,7 +10,7 @@ import com.example.marsphotos.network.MarsPhoto
 sealed interface MarsUiState {
     data object Loading : MarsUiState
     data class Success(val photos: List<MarsPhoto>) : MarsUiState
-    data object Error : MarsUiState
+    data class Error(val message: String) : MarsUiState
 }
 
 class MarsViewModel : ViewModel() {
