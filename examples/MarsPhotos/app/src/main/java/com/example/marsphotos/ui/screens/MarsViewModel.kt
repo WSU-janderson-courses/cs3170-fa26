@@ -4,13 +4,18 @@ import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.setValue
 import androidx.lifecycle.ViewModel
+import androidx.lifecycle.viewModelScope
+import com.example.marsphotos.network.MarsApi
 import com.example.marsphotos.network.MarsPhoto
+import kotlinx.coroutines.CancellationException
+import kotlinx.coroutines.launch
 
 
 sealed interface MarsUiState {
     data object Loading : MarsUiState
     data class Success(val photos: List<MarsPhoto>) : MarsUiState
     data class Error(val message: String) : MarsUiState
+    data class RawJson(val json: String): MarsUiState
 }
 
 class MarsViewModel : ViewModel() {
@@ -24,6 +29,16 @@ class MarsViewModel : ViewModel() {
     fun getMarsPhotos() {
         // DEMO 3: Use viewModelScope.launch to call the Retrofit service.
         // Set Loading before the request, Success after it, or Error on failure.
-        marsUiState = MarsUiState.Success(emptyList()) // temporary starter behavior
+        marsUiState = MarsUiState.Loading
+        viewModelScope.launch {
+            try {
+                val json = MarsApi.retrofitService.getRawPhotos()
+                marsUiState = MarsUiState.RawJson(json)
+            } catch (e: CancellationException) {
+
+            } catch (e: Exception){
+
+            }
+        }
     }
 }

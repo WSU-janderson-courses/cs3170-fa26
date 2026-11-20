@@ -44,6 +44,7 @@ fun HomeScreen(
             }
 
             is MarsUiState.Success -> Text("There are ${marsUiState.photos.size} photos")// PhotosGridScreen(marsUiState.photos)
+            is MarsUiState.RawJson -> Text(marsUiState.json)
         }
     }
 }
