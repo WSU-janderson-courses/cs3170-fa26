@@ -50,7 +50,7 @@ dependencies {
     implementation(libs.androidx.compose.material3)
     implementation(libs.androidx.lifecycle.viewmodel.compose)
 
-    // Network, JSON, and remote images (already configured for the demo)
+    // Prepared for the demo: Retrofit, JSON serialization, and Coil 2.
     implementation(libs.retrofit)
     implementation(libs.retrofit.scalars)
     implementation(libs.kotlinx.serialization.retrofit)
