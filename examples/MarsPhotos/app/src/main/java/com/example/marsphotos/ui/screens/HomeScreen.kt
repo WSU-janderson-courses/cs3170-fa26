@@ -49,7 +49,8 @@ fun HomeScreen(
 
             is MarsUiState.Success -> {
                 Text("There are ${marsUiState.photos.size} photos")
-            }// PhotosGridScreen(marsUiState.photos)
+                // PhotosGridScreen(marsUiState.photos)
+            }
             is MarsUiState.RawJson -> {
                 Text("Raw JSON response\n(${marsUiState.json.length} characters total)\n-------\n${marsUiState.json}", fontFamily = FontFamily.Monospace)
             }
