@@ -15,6 +15,7 @@ import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
 import com.example.marsphotos.network.MarsPhoto
@@ -29,22 +30,29 @@ fun HomeScreen(
 ) {
     Box(modifier = modifier.padding(contentPadding)) {
         when (marsUiState) {
-            MarsUiState.Loading -> Box(
-                modifier = Modifier.fillMaxSize(),
-                contentAlignment = Alignment.Center
-            ) { CircularProgressIndicator() }
-
-            is MarsUiState.Error -> Column(
-                modifier = Modifier.fillMaxSize(),
-                verticalArrangement = Arrangement.Center,
-                horizontalAlignment = Alignment.CenterHorizontally
-            ) {
-                Text("Could not load Mars photos: ${marsUiState.message}")
-                Button(onClick = onRetry) { Text("Retry") }
+            MarsUiState.Loading -> {
+                Box(
+                    modifier = Modifier.fillMaxSize(),
+                    contentAlignment = Alignment.Center
+                ) { CircularProgressIndicator() }
+            }
+            is MarsUiState.Error -> {
+                Column(
+                    modifier = Modifier.fillMaxSize(),
+                    verticalArrangement = Arrangement.Center,
+                    horizontalAlignment = Alignment.CenterHorizontally
+                ) {
+                    Text("Could not load Mars photos: ${marsUiState.message}")
+                    Button(onClick = onRetry) { Text("Retry") }
+                }
             }
 
-            is MarsUiState.Success -> Text("There are ${marsUiState.photos.size} photos")// PhotosGridScreen(marsUiState.photos)
-            is MarsUiState.RawJson -> Text(marsUiState.json)
+            is MarsUiState.Success -> {
+                Text("There are ${marsUiState.photos.size} photos")
+            }// PhotosGridScreen(marsUiState.photos)
+            is MarsUiState.RawJson -> {
+                Text("Raw JSON response\n(${marsUiState.json.length} characters total)\n-------\n${marsUiState.json}", fontFamily = FontFamily.Monospace)
+            }
         }
     }
 }
