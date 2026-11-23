@@ -35,9 +35,9 @@ class MarsViewModel : ViewModel() {
                 val json = MarsApi.retrofitService.getRawPhotos()
                 marsUiState = MarsUiState.RawJson(json)
             } catch (e: CancellationException) {
-
+                throw e
             } catch (e: Exception){
-
+                marsUiState = MarsUiState.Error("Error: ${e.message}")
             }
         }
     }
