@@ -32,11 +32,12 @@ class MarsViewModel : ViewModel() {
         marsUiState = MarsUiState.Loading
         viewModelScope.launch {
             try {
-                val json = MarsApi.retrofitService.getRawPhotos()
-                marsUiState = MarsUiState.RawJson(json)
+                // val json = MarsApi.retrofitService.getRawPhotos()
+                val photos = MarsApi.retrofitService.getPhotos()
+                marsUiState = MarsUiState.Success(photos)
             } catch (e: CancellationException) {
                 throw e
-            } catch (e: Exception){
+            } catch (e: Exception) {
                 marsUiState = MarsUiState.Error("Error: ${e.message}")
             }
         }

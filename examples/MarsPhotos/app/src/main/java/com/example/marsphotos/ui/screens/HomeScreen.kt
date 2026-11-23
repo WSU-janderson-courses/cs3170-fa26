@@ -4,10 +4,12 @@ import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.PaddingValues
+import androidx.compose.foundation.layout.aspectRatio
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
-import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.lazy.grid.GridCells
+import androidx.compose.foundation.lazy.grid.LazyVerticalGrid
 import androidx.compose.material3.Button
 import androidx.compose.material3.Card
 import androidx.compose.material3.CircularProgressIndicator
@@ -15,11 +17,18 @@ import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.layout.ContentScale
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
+import coil.compose.AsyncImage
+import coil.request.ImageRequest
 import com.example.marsphotos.network.MarsPhoto
 import com.example.marsphotos.ui.theme.MarsPhotosTheme
+import androidx.compose.foundation.lazy.grid.items
+import androidx.compose.ui.res.painterResource
+import com.example.marsphotos.R
 
 @Composable
 fun HomeScreen(
@@ -36,6 +45,7 @@ fun HomeScreen(
                     contentAlignment = Alignment.Center
                 ) { CircularProgressIndicator() }
             }
+
             is MarsUiState.Error -> {
                 Column(
                     modifier = Modifier.fillMaxSize(),
@@ -48,11 +58,14 @@ fun HomeScreen(
             }
 
             is MarsUiState.Success -> {
-                Text("There are ${marsUiState.photos.size} photos")
-                // PhotosGridScreen(marsUiState.photos)
+                PhotosGridScreen(marsUiState.photos)
             }
+
             is MarsUiState.RawJson -> {
-                Text("Raw JSON response\n(${marsUiState.json.length} characters total)\n-------\n${marsUiState.json}", fontFamily = FontFamily.Monospace)
+                Text(
+                    "Raw JSON response\n(${marsUiState.json.length} characters total)\n-------\n${marsUiState.json}",
+                    fontFamily = FontFamily.Monospace
+                )
             }
         }
     }
@@ -64,17 +77,18 @@ fun PhotosGridScreen(
     modifier: Modifier = Modifier
 ) {
     // DEMO 5: Replace this Column with a LazyVerticalGrid (optional).
-    Column(
-        modifier = modifier.padding(16.dp),
-        verticalArrangement = Arrangement.spacedBy(12.dp)
+    LazyVerticalGrid(
+        columns = GridCells.Adaptive(minSize = 150.dp),
+        modifier = modifier.fillMaxSize(),
+        contentPadding = PaddingValues(8.dp)
     ) {
-        Text("Loaded ${photos.size} Mars photo records")
-        if (photos.isEmpty()) {
-            Text("No photos yet. The ViewModel is still using starter data.")
-        } else {
+        items(items = photos, key = { photo -> photo.id} ) { photo ->
             MarsPhotoCard(
-                photo = photos.first(),
-                modifier = Modifier.fillMaxWidth().height(240.dp)
+                photo = photo,
+                modifier = Modifier
+                    .padding(4.dp)
+                    .fillMaxWidth()
+                    .aspectRatio(1.5f)
             )
         }
     }
@@ -87,12 +101,17 @@ fun MarsPhotoCard(
 ) {
     // DEMO 4: Replace this Text with Coil's AsyncImage.
     Card(modifier = modifier) {
-        Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
-            Text(
-                "Photo ${photo.id}: ${photo.imgSrc}",
-                modifier = Modifier.padding(12.dp)
-            )
-        }
+        AsyncImage(
+            model = ImageRequest.Builder(LocalContext.current)
+                .data(photo.imgSrc)
+                .crossfade(true)
+                .build(),
+            contentDescription = "Mars photo ${photo.id}",
+            contentScale = ContentScale.Crop,
+            placeholder = painterResource(R.drawable.loading_img),
+            error = painterResource(R.drawable.ic_broken_image),
+            modifier = Modifier.fillMaxSize()
+        )
     }
 }
 
@@ -100,7 +119,7 @@ fun MarsPhotoCard(
 @Composable
 fun PhotosGridScreenPreview() {
     MarsPhotosTheme {
-        PhotosGridScreen(List(10) {MarsPhoto("MarsPhoto::id: $it","MarsPhoto::imgSrc")})
+        PhotosGridScreen(List(10) { MarsPhoto("MarsPhoto::id: $it", "MarsPhoto::imgSrc") })
     }
 }
 
@@ -124,6 +143,6 @@ fun HomeScreenPreview() {
         HomeScreen(
             marsUiState = MarsUiState.Loading,
             onRetry = {},
-                    )
+        )
     }
 }
